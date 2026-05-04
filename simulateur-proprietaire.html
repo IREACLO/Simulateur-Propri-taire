@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulateur Propriétaire — Club des Hôtes</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --accent: #e8562a;
+    --accent2: #f0845a;
+    --text: #f0ede8;
+    --muted: #7a7880;
+    --muted2: #a09da8;
+    --green: #2dca72;
+    --red: #e84444;
+    --bubble-owner: #1c1c26;
+    --bubble-user: #e8562a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  .wrap { position: relative; z-index: 1; }
+
+  /* HEADER */
+  header {
+    padding: 28px 40px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.85);
+  }
+
+  .logo-badge {
+    width: 40px; height: 40px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+
+  header p {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  .api-section {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .api-input {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 12px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    width: 220px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-input:focus { border-color: var(--accent); }
+  .api-input::placeholder { color: var(--muted); }
+
+  .btn-save {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-save:hover { opacity: 0.85; }
+
+  /* MAIN LAYOUT */
+  main {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    height: calc(100vh - 85px);
+  }
+
+  /* SIDEBAR */
+  aside {
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    overflow-y: auto;
+    background: var(--surface);
+  }
+
+  .sidebar-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 20px 12px;
+  }
+
+  .scenario-card {
+    margin: 0 12px 6px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.18s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .scenario-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.18s;
+  }
+
+  .scenario-card:hover {
+    background: var(--surface2);
+    border-color: var(--border);
+  }
+
+  .scenario-card.active {
+    background: var(--surface2);
+    border-color: var(--border2);
+  }
+  .scenario-card.active::before { opacity: 1; }
+
+  .sc-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+
+  .sc-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .sc-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .sc-tag {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .tag-hard { background: rgba(232,84,42,0.15); color: var(--accent2); }
+  .tag-med { background: rgba(240,148,40,0.15); color: #f09428; }
+  .tag-easy { background: rgba(45,202,114,0.15); color: var(--green); }
+
+  .sidebar-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 16px 12px;
+  }
+
+  .sidebar-tip {
+    padding: 12px 20px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* CHAT AREA */
+  .chat-container {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    position: relative;
+  }
+
+  /* Welcome screen */
+  .welcome {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 40px;
+    text-align: center;
+  }
+
+  .welcome-icon {
+    width: 72px; height: 72px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+  }
+
+  .welcome h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .welcome p {
+    font-size: 14px;
+    color: var(--muted2);
+    max-width: 380px;
+    line-height: 1.7;
+  }
+
+  /* Chat header */
+  .chat-header {
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(17,17,24,0.6);
+    backdrop-filter: blur(10px);
+  }
+
+  .chat-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .chat-owner-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .chat-owner-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .chat-reset {
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 12px;
+    color: var(--muted2);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.18s;
+  }
+  .chat-reset:hover { border-color: var(--accent); color: var(--accent); }
+
+  .msg-count-badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  /* Messages */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    scroll-behavior: smooth;
+  }
+
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .msg-row {
+    display: flex;
+    gap: 10px;
+    animation: fadeUp 0.25s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg-row.user { flex-direction: row-reverse; }
+
+  .msg-avatar-sm {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .msg-bubble {
+    max-width: 68%;
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text);
+  }
+
+  .msg-row.owner .msg-bubble {
+    background: var(--bubble-owner);
+    border: 1px solid var(--border);
+    border-top-left-radius: 4px;
+  }
+
+  .msg-row.user .msg-bubble {
+    background: var(--accent);
+    border-top-right-radius: 4px;
+    color: #fff;
+  }
+
+  .typing-bubble {
+    background: var(--bubble-owner);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    border-top-left-radius: 4px;
+    padding: 14px 18px;
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+
+  .typing-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    animation: bounce 1.2s infinite;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-5px); }
+  }
+
+  /* Feedback card */
+  .feedback-card {
+    margin: 0 28px 20px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border2);
+    animation: fadeUp 0.35s ease;
+  }
+
+  .feedback-header {
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .feedback-header.accept { background: rgba(45,202,114,0.12); color: var(--green); border-bottom: 1px solid rgba(45,202,114,0.2); }
+  .feedback-header.refuse { background: rgba(232,68,68,0.12); color: var(--red); border-bottom: 1px solid rgba(232,68,68,0.2); }
+
+  .feedback-body {
+    padding: 16px 20px;
+    background: var(--surface);
+    font-size: 13px;
+    line-height: 1.75;
+    color: var(--muted2);
+  }
+
+  .feedback-body strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .feedback-actions {
+    padding: 12px 20px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-retry {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    transition: opacity 0.2s;
+  }
+  .btn-retry:hover { opacity: 0.85; }
+
+  .btn-other {
+    background: transparent;
+    color: var(--muted2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.18s;
+  }
+  .btn-other:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Input area */
+  .input-area {
+    padding: 16px 28px 20px;
+    border-top: 1px solid var(--border);
+    background: rgba(10,10,15,0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .msg-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    resize: none;
+    outline: none;
+    min-height: 48px;
+    max-height: 140px;
+    transition: border-color 0.2s;
+    line-height: 1.5;
+  }
+  .msg-input:focus { border-color: var(--accent); }
+  .msg-input::placeholder { color: var(--muted); }
+  .msg-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .send-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.18s;
+    flex-shrink: 0;
+  }
+  .send-btn:hover { opacity: 0.85; transform: scale(1.03); }
+  .send-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  .send-btn svg { width: 20px; height: 20px; fill: #fff; }
+
+  .input-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+    text-align: center;
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    header { padding: 16px 20px; }
+    .api-section { display: none; }
+    main { grid-template-columns: 1fr; }
+    aside { display: none; }
+    .messages { padding: 16px; }
+    .input-area { padding: 12px 16px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- HEADER -->
+<header>
+  <div class="logo-badge">CH</div>
+  <div>
+    <h1>Simulateur Propriétaire</h1>
+    <p>Club des Hôtes — Entraînement à la prospection</p>
+  </div>
+  <div class="api-section">
+    <input class="api-input" type="password" id="api-key" placeholder="Clé API Anthropic (sk-ant-...)" />
+    <button class="btn-save" onclick="saveKey()">Sauvegarder</button>
+  </div>
+</header>
+
+<main>
+
+<!-- SIDEBAR -->
+<aside>
+  <div class="sidebar-label">Choisir un scénario</div>
+
+  <div class="scenario-card" id="sc-novice" onclick="selectScenario('novice')">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div class="sc-avatar" style="background:rgba(45,202,114,0.15);color:#2dca72;">T</div>
+      <div>
+        <div class="sc-name">Thomas B.</div>
+        <div class="sc-desc">Paris, 75011</div>
+      </div>
+    </div>
+    <div class="sc-desc">N'a jamais fait de location courte durée. Curieux mais méfiant sur les risques.</div>
+    <span class="sc-tag tag-easy">Niveau débutant</span>
+  </div>
+
+  <div class="scenario-card" id="sc-solo" onclick="selectScenario('solo')">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div class="sc-avatar" style="background:rgba(240,148,40,0.15);color:#f09428;">M</div>
+      <div>
+        <div class="sc-name">Marc D.</div>
+        <div class="sc-desc">Lyon, 69006</div>
+      </div>
+    </div>
+    <div class="sc-desc">Gère déjà seul sur Airbnb depuis 1 an. Veut comprendre la valeur ajoutée.</div>
+    <span class="sc-tag tag-med">Niveau intermédiaire</span>
+  </div>
+
+  <div class="scenario-card" id="sc-bad" onclick="selectScenario('bad')">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div class="sc-avatar" style="background:rgba(232,84,42,0.15);color:#e8562a;">S</div>
+      <div>
+        <div class="sc-name">Sophie L.</div>
+        <div class="sc-desc">Bordeaux, 33000</div>
+      </div>
+    </div>
+    <div class="sc-desc">A eu une mauvaise expérience avec une conciergerie. Méfiante et directe.</div>
+    <span class="sc-tag tag-hard">Niveau avancé</span>
+  </div>
+
+  <div class="sidebar-divider"></div>
+
+  <div class="sidebar-tip">
+    <strong style="color:var(--muted2);font-size:11px;">Objectif</strong><br>
+    Convaincre le propriétaire d'accepter un rendez-vous physique dans son logement. La conversation continue jusqu'à ce qu'il accepte ou refuse définitivement.
+  </div>
+
+  <div class="sidebar-divider"></div>
+
+  <div class="sidebar-tip">
+    <strong style="color:var(--muted2);font-size:11px;">Conseil</strong><br>
+    Pose des questions, utilise des chiffres concrets, adapte-toi aux objections. Évite les réponses génériques.
+  </div>
+</aside>
+
+<!-- CHAT -->
+<div class="chat-container" id="chat-container">
+
+  <!-- Welcome -->
+  <div class="welcome" id="welcome-screen">
+    <div class="welcome-icon">🏠</div>
+    <h2>Choisis un propriétaire</h2>
+    <p>Sélectionne un scénario dans le menu de gauche pour commencer ta simulation. Chaque propriétaire a une personnalité unique et des objections différentes.</p>
+  </div>
+
+  <!-- Chat UI (hidden initially) -->
+  <div id="chat-ui" style="display:none;flex:1;display:none;flex-direction:column;height:100%;">
+
+    <div class="chat-header" id="chat-header">
+      <div class="chat-avatar" id="ch-avatar"></div>
+      <div>
+        <div class="chat-owner-name" id="ch-name"></div>
+        <div class="chat-owner-sub" id="ch-sub"></div>
+      </div>
+      <span class="msg-count-badge" id="msg-count">0 échanges</span>
+      <button class="chat-reset" onclick="resetToWelcome()">← Changer</button>
+    </div>
+
+    <div class="messages" id="messages"></div>
+
+    <div class="feedback-card" id="feedback-card" style="display:none;"></div>
+
+    <div class="input-area" id="input-area">
+      <div class="input-row">
+        <textarea class="msg-input" id="msg-input" placeholder="Écris ton message au propriétaire..." rows="1"
+          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+      <div class="input-hint">Entrée pour envoyer · Maj+Entrée pour nouvelle ligne</div>
+    </div>
+
+  </div>
+
+</div>
+</main>
+</div>
+
+<script>
+const SCENARIOS = {
+  novice: {
+    name: 'Thomas B.',
+    sub: 'Propriétaire à Paris 11e — Jamais loué en courte durée',
+    initials: 'T',
+    avatarStyle: 'background:rgba(45,202,114,0.18);color:#2dca72;',
+    opener: "Allô ? Oui bonjour... vous m'avez envoyé un message sur Leboncoin je crois ? Je suis propriétaire d'un appartement dans le 11e mais je l'ai jamais mis sur Airbnb. Honnêtement j'y connais rien et j'ai un peu peur de me lancer dans un truc que je maîtrise pas.",
+    system: `Tu es Thomas, propriétaire français d'un appartement dans le 11e arrondissement de Paris. Un élève en formation conciergerie Airbnb te contacte en prospection pour te proposer de gérer ton bien. Tu ne l'as jamais loué en courte durée. Tu es curieux mais méfiant et peu informé.
+
+Le contexte : l'élève t'a contacté en premier (prospection froide), tu ne le connais pas. Tu es un peu surpris de cet appel/message.
+
+Tes objections principales : c'est légal à Paris avec la loi Airbnb ? Qui gère les clés et le ménage entre chaque locataire ? Et si quelqu'un abîme mon appartement ? Combien je vais vraiment gagner ? Je suis pas sûr de vouloir des inconnus chez moi.
+
+RÈGLES IMPORTANTES :
+- Tu réponds en français parisien naturel, parfois un peu sec
+- Réponds en 2-4 phrases maximum
+- Sois réaliste, ni trop facile ni trop difficile
+- Tu poses des questions sur la réglementation parisienne (90 jours max, déclaration en mairie, taxe de séjour)
+- Si l'élève donne des arguments concrets et chiffrés adaptés à Paris, deviens plus ouvert progressivement
+- Si l'élève est vague ou générique, reste sceptique et demande des précisions
+- L'objectif de l'élève est de décrocher un rendez-vous physique dans ton appartement
+- Après minimum 4 échanges, tu peux accepter ou refuser selon la qualité des arguments
+- Si tu acceptes le rendez-vous, termine OBLIGATOIREMENT ta réponse avec le tag [RDV_ACCEPT]
+- Si après 8+ échanges sans arguments solides tu refuses définitivement, termine avec [RDV_REFUSE]
+- Ne mets JAMAIS ces tags avant le 4ème échange
+- Niveau de difficulté : débutant`
+  },
+  solo: {
+    name: 'Marc D.',
+    sub: 'Propriétaire à Lyon 6e — Gère déjà seul sur Airbnb',
+    initials: 'M',
+    avatarStyle: 'background:rgba(240,148,40,0.18);color:#f09428;',
+    opener: "Ouais bonjour. Vous me proposez quoi exactement ? Parce que j'ai déjà mon Airbnb dans le 6e, ça tourne bien depuis 18 mois, je m'en occupe moi-même. J'vois pas trop l'intérêt de payer quelqu'un pour faire ce que je fais déjà.",
+    system: `Tu es Marc, propriétaire français d'un appartement dans le 6e arrondissement de Lyon. Un élève en formation conciergerie Airbnb te contacte en prospection. Tu gères déjà ton logement seul sur Airbnb depuis 18 mois. Tu es pragmatique, un peu brusque, et tu veux du concret.
+
+Le contexte : l'élève t'a contacté en premier (prospection), tu n'as pas spécialement envie de changer ce qui marche.
+
+Tes objections principales : pourquoi te payer une commission si je gère déjà ? Tu vas faire quoi de plus ? Je veux pas perdre le contrôle de mes prix et de mes réservations. Prouve-moi que tu peux faire mieux que moi sur Lyon. Combien tu prends comme commission ?
+
+RÈGLES IMPORTANTES :
+- Tu réponds en français lyonnais pragmatique et direct
+- Réponds en 2-4 phrases maximum
+- Tu veux des chiffres concrets, des exemples sur Lyon, pas du baratin
+- Si l'élève cite des données sur le marché lyonnais ou donne des projections chiffrées, montre de l'intérêt
+- Si l'élève est vague ou répète des arguments génériques, reste fermé et demande des preuves
+- L'objectif de l'élève est de décrocher un rendez-vous physique dans ton appartement
+- Après minimum 4 échanges convaincants, tu peux accepter
+- Si tu acceptes le rendez-vous, termine OBLIGATOIREMENT avec [RDV_ACCEPT]
+- Si tu refuses définitivement après 8+ échanges sans arguments solides, termine avec [RDV_REFUSE]
+- Ne mets JAMAIS ces tags avant le 4ème échange
+- Niveau de difficulté : intermédiaire`
+  },
+  bad: {
+    name: 'Sophie L.',
+    sub: 'Propriétaire à Bordeaux — Mauvaise expérience conciergerie',
+    initials: 'S',
+    avatarStyle: 'background:rgba(232,84,42,0.18);color:#e8562a;',
+    opener: "Je vais être franche avec vous : j'ai déjà donné. J'avais une conciergerie sur Bordeaux l'an dernier — désastre total. Ils répondaient pas aux voyageurs, y'a eu un dégât dans la salle de bain qu'ils ont mal géré avec Airbnb, et au final j'ai gagné moins qu'avant. Donc là faut vraiment me convaincre parce que j'ai vraiment pas envie de revivre ça.",
+    system: `Tu es Sophie, propriétaire française d'un appartement à Bordeaux centre. Un élève en formation conciergerie Airbnb te contacte en prospection. Tu as eu une très mauvaise expérience avec une conciergerie bordelaise l'an dernier : mauvaise communication, dégât mal géré avec Airbnb, revenus décevants, manque de transparence. Tu es méfiante, un peu blessée, et difficile à convaincre.
+
+Le contexte : l'élève t'a contacté en premier (prospection froide), et tu es particulièrement sur la défensive à cause de ta mauvaise expérience.
+
+Tes objections principales : comment tu es différent des autres conciergeries ? Pourquoi je te ferais confiance ? La dernière fois on m'avait promis exactement la même chose. Comment tu gères les dégâts concrètement ? Comment je peux vérifier ton travail ? Tu as des références à Bordeaux ?
+
+RÈGLES IMPORTANTES :
+- Tu réponds en français bordelais, ton direct et parfois amer
+- Réponds en 2-4 phrases maximum
+- Tu es la plus difficile à convaincre. Même si l'élève dit quelque chose de pertinent, reste méfiante encore 1-2 échanges
+- Tu veux des garanties très concrètes : contrat, transparence totale, références, processus de gestion des dégâts
+- L'objectif de l'élève est de décrocher un rendez-vous physique dans ton appartement
+- Après minimum 6 échanges TRÈS convaincants avec des réponses précises à tes objections, tu peux finalement accepter
+- Si tu acceptes le rendez-vous, termine OBLIGATOIREMENT avec [RDV_ACCEPT]
+- Si l'élève est vague, répète des banalités ou ne répond pas à tes vraies questions après 8+ échanges, refuse définitivement avec [RDV_REFUSE]
+- Ne mets JAMAIS ces tags avant le 6ème échange
+- Niveau de difficulté : avancé`
+  }
+};
+
+let currentScenario = null;
+let messages = [];
+let exchangeCount = 0;
+let isLoading = false;
+let isFinished = false;
+let apiKey = localStorage.getItem('cdh_api_key') || '';
+
+if (apiKey) document.getElementById('api-key').value = apiKey;
+
+function saveKey() {
+  apiKey = document.getElementById('api-key').value.trim();
+  localStorage.setItem('cdh_api_key', apiKey);
+  const btn = document.querySelector('.btn-save');
+  btn.textContent = '✓ Sauvegardé';
+  setTimeout(() => btn.textContent = 'Sauvegarder', 2000);
+}
+
+function selectScenario(key) {
+  document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('sc-' + key).classList.add('active');
+  startChat(key);
+}
+
+function startChat(key) {
+  currentScenario = key;
+  messages = [];
+  exchangeCount = 0;
+  isLoading = false;
+  isFinished = false;
+
+  const sc = SCENARIOS[key];
+
+  // Update header
+  const avatar = document.getElementById('ch-avatar');
+  avatar.textContent = sc.initials;
+  avatar.style.cssText = 'width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Syne,sans-serif;font-size:16px;font-weight:700;flex-shrink:0;' + sc.avatarStyle;
+  document.getElementById('ch-name').textContent = sc.name;
+  document.getElementById('ch-sub').textContent = sc.sub;
+
+  // Reset UI
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('feedback-card').style.display = 'none';
+  document.getElementById('msg-input').disabled = false;
+  document.getElementById('send-btn').disabled = false;
+  document.getElementById('msg-input').value = '';
+  updateCount();
+
+  // Show chat
+  document.getElementById('welcome-screen').style.display = 'none';
+  const chatUI = document.getElementById('chat-ui');
+  chatUI.style.display = 'flex';
+
+  // First message from owner
+  addMessage('owner', sc.opener);
+  messages.push({ role: 'assistant', content: sc.opener });
+}
+
+function resetToWelcome() {
+  document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('welcome-screen').style.display = 'flex';
+  document.getElementById('chat-ui').style.display = 'none';
+  currentScenario = null;
+}
+
+function addMessage(from, text) {
+  const clean = text.replace(/\[RDV_ACCEPT\]/g, '').replace(/\[RDV_REFUSE\]/g, '').trim();
+  const sc = currentScenario ? SCENARIOS[currentScenario] : null;
+  const div = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + from;
+
+  let avatarHtml = '';
+  if (from === 'owner' && sc) {
+    avatarHtml = `<div class="msg-avatar-sm" style="${sc.avatarStyle}">${sc.initials}</div>`;
+  } else if (from === 'user') {
+    avatarHtml = `<div class="msg-avatar-sm" style="background:rgba(232,84,42,0.2);color:#e8562a;">Toi</div>`;
+  }
+
+  row.innerHTML = `${avatarHtml}<div class="msg-bubble">${clean}</div>`;
+  div.appendChild(row);
+  div.scrollTop = div.scrollHeight;
+}
+
+function addTyping() {
+  const div = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row owner';
+  row.id = 'typing-indicator';
+  const sc = currentScenario ? SCENARIOS[currentScenario] : null;
+  row.innerHTML = `
+    <div class="msg-avatar-sm" style="${sc ? sc.avatarStyle : ''}">${sc ? sc.initials : '?'}</div>
+    <div class="typing-bubble">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>`;
+  div.appendChild(row);
+  div.scrollTop = div.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing-indicator');
+  if (t) t.remove();
+}
+
+function updateCount() {
+  document.getElementById('msg-count').textContent = exchangeCount + ' échange' + (exchangeCount > 1 ? 's' : '');
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+}
+
+async function sendMessage() {
+  if (isLoading || isFinished || !currentScenario) return;
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const key = apiKey || localStorage.getItem('cdh_api_key') || '';
+  if (!key) {
+    alert('Entre ta clé API Anthropic en haut à droite pour utiliser le simulateur.');
+    return;
+  }
+
+  input.value = '';
+  input.style.height = 'auto';
+  addMessage('user', text);
+  messages.push({ role: 'user', content: text });
+  exchangeCount++;
+  updateCount();
+
+  isLoading = true;
+  document.getElementById('send-btn').disabled = true;
+  input.disabled = true;
+  addTyping();
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        system: SCENARIOS[currentScenario].system,
+        messages: messages
+      })
+    });
+
+    const data = await resp.json();
+    removeTyping();
+
+    if (data.error) {
+      addMessage('owner', "Erreur API : " + data.error.message);
+      isLoading = false;
+      document.getElementById('send-btn').disabled = false;
+      input.disabled = false;
+      return;
+    }
+
+    const reply = data.content[0].text;
+    addMessage('owner', reply);
+    messages.push({ role: 'assistant', content: reply });
+
+    const accepted = reply.includes('[RDV_ACCEPT]');
+    const refused = reply.includes('[RDV_REFUSE]');
+
+    if (accepted || refused) {
+      isFinished = true;
+      input.disabled = true;
+      document.getElementById('send-btn').disabled = true;
+      await showFeedback(accepted);
+    } else {
+      input.disabled = false;
+      document.getElementById('send-btn').disabled = false;
+      input.focus();
+    }
+
+  } catch (e) {
+    removeTyping();
+    addMessage('owner', "Erreur de connexion. Vérifie ta clé API.");
+    isLoading = false;
+    input.disabled = false;
+    document.getElementById('send-btn').disabled = false;
+  }
+
+  isLoading = false;
+}
+
+async function showFeedback(accepted) {
+  const fb = document.getElementById('feedback-card');
+  fb.style.display = 'block';
+
+  const resultType = accepted ? 'accept' : 'refuse';
+  const resultLabel = accepted ? '✓ Rendez-vous accepté !' : '✗ Rendez-vous refusé';
+
+  fb.innerHTML = `
+    <div class="feedback-header ${resultType}">${resultLabel}</div>
+    <div class="feedback-body" id="fb-body">
+      <span style="color:var(--muted)">Analyse de ta performance en cours...</span>
+    </div>
+    <div class="feedback-actions">
+      <button class="btn-retry" onclick="startChat('${currentScenario}')">Recommencer ce scénario</button>
+      <button class="btn-other" onclick="resetToWelcome()">Changer de propriétaire</button>
+    </div>`;
+
+  fb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  const key = apiKey || localStorage.getItem('cdh_api_key') || '';
+  const convo = messages.map(m => `${m.role === 'user' ? 'Élève' : 'Propriétaire'}: ${m.content.replace('[RDV_ACCEPT]','').replace('[RDV_REFUSE]','')}`).join('\n\n');
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{
+          role: 'user',
+          content: `Tu es un coach expert en conciergerie Airbnb et en négociation commerciale. Analyse cette conversation entre un élève en formation conciergerie et un propriétaire simulé. L'élève cherchait à obtenir un rendez-vous physique. Le résultat est : ${accepted ? 'ACCEPTÉ' : 'REFUSÉ'}.\n\nConversation :\n${convo}\n\nDonne un feedback structuré en HTML avec ces 3 sections :\n1. Pourquoi le propriétaire a ${accepted ? 'accepté' : 'refusé'} (2-3 phrases)\n2. Points forts de l'élève (liste de 2-3 points)\n3. Ce qu'il faut améliorer (liste de 2-3 points concrets)\n\nUtilise des balises <strong> pour les titres de section. Sois direct, concret, professionnel. En français.`
+        }]
+      })
+    });
+    const data = await resp.json();
+    document.getElementById('fb-body').innerHTML = data.content[0].text;
+  } catch (e) {
+    document.getElementById('fb-body').innerHTML = accepted
+      ? '<strong>Félicitations !</strong> Tu as réussi à convaincre le propriétaire d\'accepter un rendez-vous. Continue à t\'entraîner pour être encore plus efficace.'
+      : '<strong>Pas de chance cette fois.</strong> Le propriétaire n\'a pas été suffisamment convaincu. Réessaie avec des arguments plus concrets et chiffrés.';
+  }
+}
+</script>
+</body>
+</html>
